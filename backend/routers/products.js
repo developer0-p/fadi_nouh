@@ -2,10 +2,16 @@ const { Product } = require('../models/product')
 const express = require('express')
 const { Category } = require('../models/category')
 const router = express.Router()
+const mongoose = require('mongoose')
 
 //routes
 router.get('/', async (req, res) => {
-    const productList = await Product.find().populate('category')
+    let filter = {}
+    if (req.query.categories) {
+        filter = { category: req.query.categories.split(',') }
+    }
+    console.log(filter)
+    const productList = await Product.find(filter).populate('category')
     //.select('name image -_id')
 
     // .select('name image -_id')
@@ -53,6 +59,9 @@ router.post('/', async (req, res) => {
 })
 
 router.put('/:id', async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(400).send('Invalid Product Id')
+    }
     const category = await Category.findById(req.body.category)
     if (!category) {
         return res.status(400).send('Invalid category!!')
@@ -82,4 +91,43 @@ router.put('/:id', async (req, res) => {
     res.send(product)
 })
 
+router.delete('/:id', (req, res) => {
+    Product.findByIdAndRemove(req.params.id)
+        .then((product) => {
+            if (product) {
+                return res
+                    .status(200)
+                    .json({ success: true, message: 'product deleted!!' })
+            } else {
+                return res.status(404).json({
+                    success: false,
+                    message: 'product not found... cannot be deleted',
+                })
+            }
+        })
+        .catch((err) => {
+            return res.status(400).json({ success: false, error: err })
+        })
+})
+
+router.get('/get/count', async (req, res) => {
+    const productCount = await Product.countDocuments()
+
+    if (!productCount) {
+        res.status(500).json({ success: false, error: err })
+    }
+    res.send({ productCount: productCount })
+})
+
+router.get('/get/featured/:count', async (req, res) => {
+    const count = req.params.count ? req.params.count : 0
+    const productFeatured = await Product.find({ isFeatured: true }).limit(
+        count
+    )
+
+    if (!productFeatured) {
+        res.status(500).json({ success: false, error: err })
+    }
+    res.send(productFeatured)
+})
 module.exports = router
