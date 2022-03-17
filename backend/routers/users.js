@@ -1,10 +1,12 @@
 const { User } = require('../models/user')
 const express = require('express')
 const router = express.Router()
+const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
 
 //routes
 router.get('/', async (req, res) => {
-    const userList = await User.find()
+    const userList = await User.find().select('-passwordHash')
 
     if (!userList) {
         res.status(500).json({ success: false })
@@ -12,11 +14,43 @@ router.get('/', async (req, res) => {
     res.send(userList)
 })
 
-router.post('/', async (req, res) => {
+router.get('/:id', async (req, res) => {
+    const user = await User.findById(req.params.id).select('-passwordHash')
+
+    if (!user) {
+        res.status(500).json({ message: 'user not found!' })
+    }
+    res.status(200).send(user)
+})
+
+router.post('/login', async (req, res) => {
+    const user = await User.findOne({ email: req.body.email })
+    const secret = process.env.SECRET
+    if (!user) {
+        return res.status(400).send('user not found!')
+    }
+
+    if (user && bcrypt.compareSync(req.body.password, user.passwordHash)) {
+        const token = jwt.sign(
+            {
+                userId: user.id,
+                isAdmin: user.isAdmin,
+            },
+            secret,
+            {
+                expiresIn: '1d',
+            }
+        )
+        res.status(200).send({ user: user.email, token: token })
+    } else {
+        res.status(400).send('wrong password!')
+    }
+})
+router.post('/register', async (req, res) => {
     let user = new User({
         name: req.body.name,
         email: req.body.email,
-        passwordHash: req.body.passwordHash,
+        passwordHash: bcrypt.hashSync(req.body.password, 10),
         phone: req.body.phone,
         isAdmin: req.body.isAdmin,
         street: req.body.street,
