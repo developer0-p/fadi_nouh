@@ -38,7 +38,7 @@ router.post('/login', async (req, res) => {
             },
             secret,
             {
-                expiresIn: '1d',
+                expiresIn: '30d',
             }
         )
         res.status(200).send({ user: user.email, token: token })
@@ -64,6 +64,34 @@ router.post('/register', async (req, res) => {
     if (!user) return res.status(404).send('user cannot be created :(')
 
     res.send(user)
+})
+
+router.delete('/:id', (req, res) => {
+    User.findByIdAndRemove(req.params.id)
+        .then((user) => {
+            if (user) {
+                return res
+                    .status(200)
+                    .json({ success: true, message: 'user deleted!!' })
+            } else {
+                return res.status(404).json({
+                    success: false,
+                    message: 'user not found... cannot be deleted',
+                })
+            }
+        })
+        .catch((err) => {
+            return res.status(400).json({ success: false, error: err })
+        })
+})
+
+router.get('/get/count', async (req, res) => {
+    const userCount = await User.countDocuments()
+
+    if (!userCount) {
+        res.status(500).json({ success: false, error: err })
+    }
+    res.send({ userCount: userCount })
 })
 
 module.exports = router
